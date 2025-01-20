@@ -157,26 +157,6 @@ app.post('/rooms', async (req, res) => {
   }
 });
 
-// Route to delete a room
-app.delete('/rooms/:roomNumber', async (req, res) => {
-  const { roomNumber } = req.params;  
-
-  try {
-    // Check if the room exists
-    const room = await Room.findOne({ roomNumber });
-    
-    if (!room) {
-      return res.status(404).json({ message: 'Room not found' });
-    }
-
-    // Delete the room
-    await Room.deleteOne({ roomNumber });
-
-    res.json({ message: `Room number ${roomNumber} deleted successfully` });
-  } catch (err) {
-    res.status(500).json({ message: 'Error deleting room', error: err });
-  }
-});
 
 // Start server
 const port = 3000;
