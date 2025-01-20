@@ -16,9 +16,9 @@ const Course = mongoose.model('Course', courseSchema);
 
 async function createCourse() {
   const course = new Course({
-    name: 'mongodb Course',
-    author: 'charitha',
-    tags: ['javascript', 'frontend'],
+    name: 'nodejs',
+    author: 'chandhu',
+    tags: ['javascript', 'backend'],
     isPublished: true
   });
   
@@ -27,15 +27,15 @@ async function createCourse() {
 } //creating document 
 createCourse();
 
-async function getCourses(){
-  const courses = await Course.find({author: 'charitha', isPublished: true})
-  .limit(10)
-  .sort({name:1,tags: 1});
-  console.log(courses);
+//async function getCourses(){
+  //const courses = await Course.find({author: 'charitha', isPublished: true})
+  //.limit(10)
+  //.sort({name:1,tags: 1});
+  //console.log(courses);
    
-}//for reading a specific data
+//}for reading a specific data
 
-getCourses();
+//getCourses();
 
 //async function updateCourse(id){
   //const course = await Course.findById(id);
@@ -51,9 +51,9 @@ getCourses();
 
 
 
-async function removeCourse(id){
-  const course =  await Course.findByIdAndDelete(id);
-  console.log(course);
-}
-removeCourse('678104d3a95e59cf7d67001c');
+//async function removeCourse(id){
+  //const course =  await Course.findByIdAndDelete(id);
+  //console.log(course);
+//}
+//removeCourse('678104d3a95e59cf7d67001c');
 
