@@ -98,10 +98,10 @@ app.post('/rooms/cancel', async (req, res) => {
     if (!reservation) {
       return res.status(404).json({ message: 'Reservation not found' });
     }
-    
+
     if (reservation.status === 'cancelled') {
         return res.status(400).json({ message: 'Reservation is already cancelled' });
-      }
+    }
 
     reservation.status = 'cancelled';
     await reservation.save();
@@ -130,6 +130,27 @@ app.post('/rooms', async (req, res) => {
     res.status(201).json({ message: 'Room added successfully', room });
   } catch (err) {
     res.status(500).json({ message: 'Error adding room', error: err });
+  }
+});
+
+// Route to delete a room
+app.delete('/rooms/:roomNumber', async (req, res) => {
+  const { roomNumber } = req.params;  
+
+  try {
+    // Check if the room exists
+    const room = await Room.findOne({ roomNumber });
+    
+    if (!room) {
+      return res.status(404).json({ message: 'Room not found' });
+    }
+
+    // Delete the room
+    await Room.deleteOne({ roomNumber });
+
+    res.json({ message: `Room number ${roomNumber} deleted successfully` });
+  } catch (err) {
+    res.status(500).json({ message: 'Error deleting room', error: err });
   }
 });
 
