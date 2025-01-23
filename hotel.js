@@ -12,7 +12,7 @@ mongoose.connect('mongodb://localhost:27017/hotelManagementsystem', { useNewUrlP
   .then(() => console.log("Connected to MongoDB"))
   .catch(err => console.error("MongoDB connection error:", err));
 
-// Room Schema
+// Room Schema 
 const roomSchema = new mongoose.Schema({
   roomNumber: { type: Number, required: true, unique: true },
   roomType: { type: String, required: true, enum: ['1bhk', '2bhk', 'suite'] },
@@ -38,7 +38,7 @@ app.get('/', (req, res) => {
   res.send('Welcome to the Hotel Management System API!');
 });
 
-//  rooms in inventory
+// initialize rooms
 async function initializeRooms() {
   const roomCount = await Room.countDocuments();
   if (roomCount === 0) {
@@ -66,13 +66,27 @@ initializeRooms();
 app.get('/rooms/available', async (req, res) => {
   try {
     const availableRooms = await Room.find({ status: 'available' });
-    res.json(availableRooms);
+    const roomSummary = availableRooms.reduce((summary, room) => {
+      if (!summary[room.roomType]) {
+        summary[room.roomType] = { count: 0, price: room.price };
+      }
+      summary[room.roomType].count++;  // Count the number of available rooms per type
+      return summary;
+    }, {});
+
+    let responseText = '';
+    Object.keys(roomSummary).forEach(type => {
+      const room = roomSummary[type];
+      responseText += `No of rooms = ${room.count}, Type: ${type}, Price: ${room.price}, Status: Available\n`;
+    });
+
+    res.send(responseText);  
   } catch (err) {
-    res.status(500).json({ message: 'Error fetching available rooms', error: err });
+    res.status(500).send('Error fetching available rooms');
   }
 });
 
-// Route to get all booked room details
+// Route to see booked rooms
 app.get('/rooms/booked', async (req, res) => {
   try {
     const bookedRooms = await Reservation.find({ status: 'booked' }).populate('roomNumber');
@@ -125,7 +139,7 @@ app.post('/rooms/cancel', async (req, res) => {
     
     if (reservation.status === 'cancelled') {
         return res.status(400).json({ message: 'Reservation is already cancelled' });
-      }
+    }
 
     reservation.status = 'cancelled';
     await reservation.save();
@@ -156,7 +170,6 @@ app.post('/rooms', async (req, res) => {
     res.status(500).json({ message: 'Error adding room', error: err });
   }
 });
-
 
 // Start server
 const port = 3000;
