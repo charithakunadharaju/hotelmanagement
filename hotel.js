@@ -8,7 +8,7 @@ const app = express();
 app.use(bodyParser.json());
 
 // Connect to MongoDB
-mongoose.connect('mongodb://localhost:27017/hotelManagementsystem', { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.connect('mongodb://localhost:27017/hotelManagementsystem')
   .then(() => console.log("Connected to MongoDB"))
   .catch(err => console.error("MongoDB connection error:", err));
 
@@ -172,7 +172,7 @@ app.post('/rooms', async (req, res) => {
 });
 
 // Start server
-const port = 3000;
+const port = 3001;
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
 });
