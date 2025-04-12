@@ -1,16 +1,33 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 const app = express();
-
-// Middleware to parse JSON requests
 app.use(bodyParser.json());
+
+const JWT_SECRET = 'your_secret_key';
 
 // Connect to MongoDB
 mongoose.connect('mongodb://localhost:27017/hotelManagementsystem')
   .then(() => console.log("Connected to MongoDB"))
   .catch(err => console.error("MongoDB connection error:", err));
+
+// User Schema
+const userSchema = new mongoose.Schema({
+  username: { type: String, required: true, unique: true },
+  password: { type: String, required: true }
+});
+
+// Hash password before saving
+userSchema.pre('save', async function(next) {
+  if (!this.isModified('password')) return next();
+  this.password = await bcrypt.hash(this.password, 10);
+  next();
+});
+
+const User = mongoose.model('User', userSchema);
 
 // Room Schema 
 const roomSchema = new mongoose.Schema({
@@ -29,31 +46,72 @@ const reservationSchema = new mongoose.Schema({
   status: { type: String, enum: ['booked', 'cancelled'], default: 'booked' }
 });
 
-// Models
 const Room = mongoose.model('Room', roomSchema);
 const Reservation = mongoose.model('Reservation', reservationSchema);
 
-// Route for the root URL
+//Auth Middleware
+
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader?.split(' ')[1];
+
+  if (!token) return res.status(401).json({ message: 'Access token required' });
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ message: 'Invalid or expired token' });
+    req.user = user;
+    next();
+  });
+}
+
+// Route for root url
 app.get('/', (req, res) => {
   res.send('Welcome to the Hotel Management System API!');
 });
 
-// initialize rooms
+// Register
+app.post('/register', async (req, res) => {
+  const { username, password } = req.body;
+  try {
+    const existingUser = await User.findOne({ username });
+    if (existingUser) return res.status(400).json({ message: 'Username already exists' });
+
+    const user = new User({ username, password });
+    await user.save();
+    res.status(201).json({ message: 'User registered successfully' });
+  } catch (err) {
+    res.status(500).json({ message: 'Registration failed', error: err });
+  }
+});
+
+// Login
+app.post('/login', async (req, res) => {
+  const { username, password } = req.body;
+  try {
+    const user = await User.findOne({ username });
+    if (!user) return res.status(400).json({ message: 'Invalid credentials' });
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
+
+    const token = jwt.sign({ userId: user._id, username: user.username }, JWT_SECRET, { expiresIn: '1h' });
+    res.json({ message: 'Login successful', token });
+  } catch (err) {
+    res.status(500).json({ message: 'Login failed', error: err });
+  }
+});
+
+// Initialize rooms 
 async function initializeRooms() {
   const roomCount = await Room.countDocuments();
   if (roomCount === 0) {
     const roomTypes = ['1bhk', '2bhk', 'suite'];
     const prices = { '1bhk': 100, '2bhk': 150, 'suite': 200 };
 
-    // Create 10 rooms for each type
     for (let i = 0; i < 10; i++) {
-      for (let roomType of roomTypes) {
-        const roomNumber = i + 1 + (roomTypes.indexOf(roomType) * 10); // Creating room numbers 1-10, 11-20, 21-30
-        const room = new Room({
-          roomNumber,
-          roomType,
-          price: prices[roomType]
-        });
+      for (let type of roomTypes) {
+        const roomNumber = i + 1 + (roomTypes.indexOf(type) * 10);
+        const room = new Room({ roomNumber, roomType: type, price: prices[type] });
         await room.save();
       }
     }
@@ -62,62 +120,49 @@ async function initializeRooms() {
 }
 initializeRooms();
 
-// Route to get all available rooms
+// Get available rooms
 app.get('/rooms/available', async (req, res) => {
   try {
     const availableRooms = await Room.find({ status: 'available' });
-    const roomSummary = availableRooms.reduce((summary, room) => {
-      if (!summary[room.roomType]) {
-        summary[room.roomType] = { count: 0, price: room.price };
-      }
-      summary[room.roomType].count++;  // Count the number of available rooms per type
-      return summary;
+    const summary = availableRooms.reduce((acc, room) => {
+      if (!acc[room.roomType]) acc[room.roomType] = { count: 0, price: room.price };
+      acc[room.roomType].count++;
+      return acc;
     }, {});
+    
+    let response = '';
+    for (let type in summary) {
+      const { count, price } = summary[type];
+      response += `No of rooms = ${count}, Type: ${type}, Price: ${price}, Status: Available\n`;
+    }
 
-    let responseText = '';
-    Object.keys(roomSummary).forEach(type => {
-      const room = roomSummary[type];
-      responseText += `No of rooms = ${room.count}, Type: ${type}, Price: ${room.price}, Status: Available\n`;
-    });
-
-    res.send(responseText);  
+    res.send(response);
   } catch (err) {
     res.status(500).send('Error fetching available rooms');
   }
 });
 
-// Route to see booked rooms
-app.get('/rooms/booked', async (req, res) => {
+// Get booked rooms
+app.get('/rooms/booked', authenticateToken, async (req, res) => {
   try {
-    const bookedRooms = await Reservation.find({ status: 'booked' }).populate('roomNumber');
+    const bookedRooms = await Reservation.find({ status: 'booked' });
     res.json(bookedRooms);
   } catch (err) {
-    res.status(500).json({ message: 'Error fetching booked room details', error: err });
+    res.status(500).json({ message: 'Error fetching booked rooms', error: err });
   }
 });
 
-// Route to reserve a room
-app.post('/rooms/reserve', async (req, res) => {
+// Reserve a room
+app.post('/rooms/reserve', authenticateToken, async (req, res) => {
   const { customerName, roomNumber, startDate, endDate } = req.body;
 
   try {
-    // Check if the room is available
     const room = await Room.findOne({ roomNumber, status: 'available' });
-    if (!room) {
-      return res.status(400).json({ message: 'Room not available or already reserved' });
-    }
+    if (!room) return res.status(400).json({ message: 'Room not available or already reserved' });
 
-    // Create reservation
-    const reservation = new Reservation({
-      customerName,
-      roomNumber,
-      startDate,
-      endDate,
-    });
-
+    const reservation = new Reservation({ customerName, roomNumber, startDate, endDate });
     await reservation.save();
 
-    // Update room status to 'reserved'
     await Room.updateOne({ roomNumber }, { status: 'reserved' });
 
     res.status(201).json({ message: 'Room reserved successfully', reservation });
@@ -126,25 +171,20 @@ app.post('/rooms/reserve', async (req, res) => {
   }
 });
 
-// Route to cancel a reservation
-app.post('/rooms/cancel', async (req, res) => {
+// Cancel a reservation
+app.post('/rooms/cancel', authenticateToken, async (req, res) => {
   const { reservationId } = req.body;
 
   try {
     const reservation = await Reservation.findById(reservationId);
+    if (!reservation) return res.status(404).json({ message: 'Reservation not found' });
 
-    if (!reservation) {
-      return res.status(404).json({ message: 'Reservation not found' });
-    }
-    
     if (reservation.status === 'cancelled') {
-        return res.status(400).json({ message: 'Reservation is already cancelled' });
+      return res.status(400).json({ message: 'Reservation already cancelled' });
     }
 
     reservation.status = 'cancelled';
     await reservation.save();
-
-    // Update room status to 'available'
     await Room.updateOne({ roomNumber: reservation.roomNumber }, { status: 'available' });
 
     res.json({ message: 'Reservation cancelled successfully' });
@@ -154,16 +194,11 @@ app.post('/rooms/cancel', async (req, res) => {
 });
 
 // Route to add a new room
-app.post('/rooms', async (req, res) => {
+app.post('/rooms', authenticateToken, async (req, res) => {
   const { roomNumber, roomType, price } = req.body;
 
   try {
-    const room = new Room({
-      roomNumber,
-      roomType,
-      price
-    });
-
+    const room = new Room({ roomNumber, roomType, price });
     await room.save();
     res.status(201).json({ message: 'Room added successfully', room });
   } catch (err) {
@@ -171,7 +206,7 @@ app.post('/rooms', async (req, res) => {
   }
 });
 
-// Start server
+// Start Server
 const port = 3001;
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
