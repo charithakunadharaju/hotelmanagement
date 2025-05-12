@@ -236,4 +236,6 @@ app.post('/rooms', authenticateToken, async (req, res) => {
 const port = 3001;
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
+  console.log(`Swagger docs at http://localhost:${port}/api-docs`);
+
 });
