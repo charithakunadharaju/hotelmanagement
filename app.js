@@ -3,9 +3,13 @@ const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { swaggerUi, swaggerSpec } = require('./swagger'); // Import Swagger
 
 const app = express();
 app.use(bodyParser.json());
+
+// Swagger route
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 const JWT_SECRET = 'your_secret_key';
 
@@ -68,6 +72,28 @@ function authenticateToken(req, res, next) {
 app.get('/', (req, res) => {
   res.send('Welcome to the Hotel Management System API!');
 });
+/**
+ * @swagger
+ * /register
+ * post:
+ * summary: register a new user
+ * tags:[auth]
+ * requestBody:
+ * required:true
+ * schema: 
+ * type: object
+ * required: [username, password]
+ * properties:
+ * username:
+ * type: string
+ * password:
+ * type: string
+ * responses:
+ * 201:
+ * description: User registered successfully
+ * 400:
+ * description: Username already exists
+ */
 
 // Register
 app.post('/register', async (req, res) => {
