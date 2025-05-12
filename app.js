@@ -53,8 +53,7 @@ const reservationSchema = new mongoose.Schema({
 const Room = mongoose.model('Room', roomSchema);
 const Reservation = mongoose.model('Reservation', reservationSchema);
 
-//Auth Middleware
-
+// Auth Middleware
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader?.split(' ')[1];
@@ -68,34 +67,39 @@ function authenticateToken(req, res, next) {
   });
 }
 
-// Route for root url
+// Root Route
 app.get('/', (req, res) => {
   res.send('Welcome to the Hotel Management System API!');
 });
+
 /**
  * @swagger
- * /register
- * post:
- * summary: register a new user
- * tags:[auth]
- * requestBody:
- * required:true
- * schema: 
- * type: object
- * required: [username, password]
- * properties:
- * username:
- * type: string
- * password:
- * type: string
- * responses:
- * 201:
- * description: User registered successfully
- * 400:
- * description: Username already exists
+ * /register:
+ *   post:
+ *     summary: Register a new user
+ *     tags: [auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - password
+ *             properties:
+ *               username:
+ *                 type: Lohith
+ *               password:
+ *                 type: Chandhu@28
+ *     responses:
+ *       201:
+ *         description: User registered successfully
+ *       400:
+ *         description: Username already exists
+ *       500:
+ *         description: Registration failed (server error)
  */
-
-// Register
 app.post('/register', async (req, res) => {
   const { username, password } = req.body;
   try {
@@ -109,6 +113,44 @@ app.post('/register', async (req, res) => {
     res.status(500).json({ message: 'Registration failed', error: err });
   }
 });
+
+/**
+ * @swagger
+ * /login:
+ *   post:
+ *     summary: Login a user
+ *     tags: [auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - password
+ *             properties:
+ *               username:
+ *                 type: Rekha
+ *               password:
+ *                 type: Hari@28
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: Login successful
+ *                 token:
+ *                   type: 123
+ *       400:
+ *         description: Invalid credentials
+ *       500:
+ *         description: Login failed
+ */
 
 // Login
 app.post('/login', async (req, res) => {
@@ -219,7 +261,7 @@ app.post('/rooms/cancel', authenticateToken, async (req, res) => {
   }
 });
 
-// Route to add a new room
+// Add a new room
 app.post('/rooms', authenticateToken, async (req, res) => {
   const { roomNumber, roomType, price } = req.body;
 
@@ -237,5 +279,4 @@ const port = 3001;
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
   console.log(`Swagger docs at http://localhost:${port}/api-docs`);
-
 });
