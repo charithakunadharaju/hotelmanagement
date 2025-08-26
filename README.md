@@ -32,4 +32,4 @@ The API allows **user registration/login**, **room inventory management**, **res
 1. **Clone the repo**
    ```bash
    git clone  https://github.com/charithakunadharaju/hotelmanagement.git
-   cd hotel-management-system
+   cd hotelmanagement
